@@ -14,8 +14,8 @@
           <p class="eyebrow">Local ASL Model</p>
           <h1>ASL Webcam Studio</h1>
           <p class="lede">
-            Browser webcam inference with lightweight on-device training and reference cards generated
-            from the same Kaggle dataset used to fit the model.
+            Browser webcam inference with browser-side hand tracking, hand-only crops, and training-set
+            reference cards so you can test signs without already knowing ASL.
           </p>
         </div>
         <div class="hero-actions">
@@ -39,9 +39,29 @@
 
           <div class="viewport">
             <video id="sourceVideo" playsinline muted autoplay></video>
+            <canvas id="overlayCanvas"></canvas>
             <canvas id="captureCanvas" width="256" height="256"></canvas>
+            <canvas id="handCropCanvas" width="256" height="256"></canvas>
             <div class="viewport-overlay">
               <span id="latencyBadge" class="mini-chip">Latency --</span>
+              <span id="handChip" class="mini-chip">Hand tracker loading</span>
+            </div>
+          </div>
+
+          <div class="tracking-strip">
+            <div class="tracking-card">
+              <span class="metric-label">Tracker</span>
+              <strong id="trackerValue">Loading</strong>
+              <span id="trackerMeta" class="tracking-meta">Preparing browser hand detection.</span>
+            </div>
+            <div class="tracking-card">
+              <span class="metric-label">Handedness</span>
+              <strong id="handednessValue">--</strong>
+              <span id="cropValue" class="tracking-meta">Crop --</span>
+            </div>
+            <div class="tracking-card tracking-preview">
+              <span class="metric-label">Classifier Sees</span>
+              <canvas id="cropPreviewCanvas" width="132" height="132"></canvas>
             </div>
           </div>
 
@@ -53,7 +73,7 @@
             <div class="prediction-meta">
               <div class="metric">
                 <span class="metric-label">Confidence</span>
-                <span id="confidenceValue" class="metric-value">0.0%</span>
+                <span id="confidenceValue" class="metric-value">--</span>
               </div>
               <div class="metric">
                 <span class="metric-label">Status</span>
@@ -63,7 +83,7 @@
           </div>
 
           <p id="helperText" class="helper-text">
-            Grant browser camera permission, then hold a static ASL handshape in frame.
+            Grant browser camera permission, then place one hand inside the guide frame until the tracker locks.
           </p>
         </section>
 
@@ -104,6 +124,6 @@
       </section>
     </main>
 
-    <script src="/static/app.js"></script>
+    <script type="module" src="/static/app.js"></script>
   </body>
 </html>

@@ -62,9 +62,10 @@ Useful options:
 - `--include-motion` to keep `J` and `Z`
 - `--include-special` to keep `space`, `del`, and `nothing`
 - `--max-images-per-class 0` to use the full dataset
+- `--full-search` to also benchmark the much slower calibrated SVM
 - `--quiet` to hide phase logging and progress bars
 
-The CLI now prints dataset indexing, feature extraction progress bars, and per-model training updates.
+The default training path now uses the fast SGD classifier only. The CLI also prints dataset indexing, feature extraction progress bars, and per-model training updates.
 If you accidentally run `python3 train_model.py` or `python3 web_ui.py` outside the active venv, the scripts will try to reuse the local `.venv` automatically.
 
 Training writes:
@@ -86,9 +87,12 @@ Then open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 The UI includes:
 
 - live webcam inference
+- browser-side hand tracking with a visible landmark overlay and crop box
 - confidence-ranked predictions
 - dataset reference cards beside the camera feed
 - testing guidance for non-signers
+
+On first load, the browser downloads a MediaPipe hand tracker model. Once it is ready, the UI draws hand landmarks and only sends the cropped hand region to the classifier instead of the full webcam frame.
 
 ## Testing Tips
 

@@ -27,6 +27,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--validation-split", type=float, default=0.2)
     parser.add_argument("--random-seed", type=int, default=42)
     parser.add_argument("--artifacts-dir", type=Path, default=Path("artifacts"))
+    parser.add_argument(
+        "--full-search",
+        action="store_true",
+        help="Also benchmark the slower calibrated SVM in addition to the fast SGD model.",
+    )
     parser.add_argument("--quiet", action="store_true", help="Hide progress bars and phase logging.")
     return parser.parse_args()
 
@@ -48,6 +53,7 @@ def main() -> None:
         validation_split=args.validation_split,
         random_seed=args.random_seed,
         show_progress=not args.quiet,
+        full_search=args.full_search,
     )
 
     print(f"Selected model: {result.metrics['selected_model']}")

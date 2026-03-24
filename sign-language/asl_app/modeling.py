@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import threading
 import time
+import warnings
 from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
@@ -62,7 +63,7 @@ def build_feature_matrix(
     return np.vstack(features).astype(np.float32), np.asarray(labels)
 
 
-def build_candidate_models(random_seed: int) -> dict[str, object]:
+def build_candidate_models(random_seed: int, *, full_search: bool) -> dict[str, object]:
     calibrated_svm = CalibratedClassifierCV(
         estimator=make_pipeline(
             StandardScaler(),
@@ -89,10 +90,12 @@ def build_candidate_models(random_seed: int) -> dict[str, object]:
             random_state=random_seed,
         ),
     )
-    return {
-        "linear-svm-calibrated": calibrated_svm,
+    models: dict[str, object] = {
         "sgd-log-loss": sgd_log_loss,
     }
+    if full_search:
+        models["linear-svm-calibrated"] = calibrated_svm
+    return models
 
 
 def fit_with_heartbeat(
@@ -139,22 +142,55 @@ def fit_with_heartbeat(
 
 
 def softmax(scores: np.ndarray) -> np.ndarray:
+    scores = np.nan_to_num(scores.astype(np.float64), nan=0.0, posinf=50.0, neginf=-50.0)
     shifted = scores - float(np.max(scores))
     exp = np.exp(shifted)
-    return exp / np.sum(exp)
+    total = float(np.sum(exp))
+    if not np.isfinite(total) or total <= 0.0:
+        return np.full(scores.shape, 1.0 / max(scores.shape[0], 1), dtype=np.float64)
+    return exp / total
+
+
+def normalize_probabilities(probabilities: np.ndarray) -> np.ndarray | None:
+    cleaned = np.nan_to_num(probabilities.astype(np.float64), nan=0.0, posinf=0.0, neginf=0.0)
+    total = float(np.sum(cleaned))
+    if not np.isfinite(total) or total <= 0.0:
+        return None
+    normalized = cleaned / total
+    if not np.all(np.isfinite(normalized)):
+        return None
+    return normalized
+
+
+def decision_probabilities(model: object, vector: np.ndarray) -> np.ndarray | None:
+    if not hasattr(model, "decision_function"):
+        return None
+
+    scores = np.asarray(model.decision_function(vector), dtype=np.float64)
+    scores = np.ravel(scores)
+    if scores.size == 0:
+        return None
+    if scores.size == 1 and hasattr(model, "classes_") and len(model.classes_) == 2:
+        score = float(scores[0])
+        scores = np.asarray([-score, score], dtype=np.float64)
+    return softmax(scores)
 
 
 def predict_with_bundle(bundle: dict[str, object], image: Image.Image, *, top_k: int = 5) -> dict[str, object]:
     model = bundle["model"]
     vector = extract_feature_vector(image).reshape(1, -1)
-    probabilities: np.ndarray
+    probabilities: np.ndarray | None = None
 
     if hasattr(model, "predict_proba"):
-        probabilities = np.asarray(model.predict_proba(vector)[0], dtype=np.float64)
-    elif hasattr(model, "decision_function"):
-        scores = np.asarray(model.decision_function(vector)[0], dtype=np.float64)
-        probabilities = softmax(scores)
-    else:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            raw_probabilities = np.asarray(model.predict_proba(vector)[0], dtype=np.float64)
+        probabilities = normalize_probabilities(raw_probabilities)
+
+    if probabilities is None:
+        probabilities = decision_probabilities(model, vector)
+
+    if probabilities is None:
         prediction = model.predict(vector)[0]
         return {
             "label": str(prediction),
@@ -296,6 +332,7 @@ def train_classifier(
     validation_split: float = 0.2,
     random_seed: int = 42,
     show_progress: bool = False,
+    full_search: bool = False,
 ) -> TrainingResult:
     if show_progress:
         print(f"Indexing dataset in {dataset_root}...", flush=True)
@@ -317,6 +354,10 @@ def train_classifier(
         label_preview = ", ".join(unique_labels)
         print(f"Found {len(unique_labels)} labels across {len(records):,} images.", flush=True)
         print(f"Labels: {label_preview}", flush=True)
+        if full_search:
+            print("Model search: fast SGD baseline plus slower calibrated SVM benchmark.", flush=True)
+        else:
+            print("Model search: fast SGD baseline only. Use --full-search to benchmark the slower calibrated SVM.", flush=True)
 
     minimum_per_label = min(labels.count(label) for label in unique_labels)
     if minimum_per_label < 2:
@@ -353,7 +394,7 @@ def train_classifier(
     best_accuracy = -1.0
     best_macro_f1 = -1.0
 
-    for model_name, model in build_candidate_models(random_seed).items():
+    for model_name, model in build_candidate_models(random_seed, full_search=full_search).items():
         if show_progress:
             print(
                 f"Training {model_name}... this phase can take a few minutes on the full dataset.",
