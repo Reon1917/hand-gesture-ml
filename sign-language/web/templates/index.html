@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ASL Webcam Studio</title>
+    <link rel="stylesheet" href="/static/app.css">
+  </head>
+  <body>
+    <div class="paper"></div>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Local ASL Model</p>
+          <h1>ASL Webcam Studio</h1>
+          <p class="lede">
+            Browser webcam inference with lightweight on-device training and reference cards generated
+            from the same Kaggle dataset used to fit the model.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="reloadModelButton" class="ghost-button">Reload Model</button>
+        </div>
+      </header>
+
+      <section class="grid">
+        <section class="panel stage-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Webcam</p>
+              <h2>Live Prediction</h2>
+            </div>
+            <div class="chip-row">
+              <span id="modelChip" class="chip chip-warn">Model missing</span>
+              <span id="datasetChip" class="chip">Awaiting training</span>
+              <span id="accuracyChip" class="chip">No metrics yet</span>
+            </div>
+          </div>
+
+          <div class="viewport">
+            <video id="sourceVideo" playsinline muted autoplay></video>
+            <canvas id="captureCanvas" width="256" height="256"></canvas>
+            <div class="viewport-overlay">
+              <span id="latencyBadge" class="mini-chip">Latency --</span>
+            </div>
+          </div>
+
+          <div class="prediction-panel">
+            <div class="prediction-main">
+              <span class="prediction-label">Most likely</span>
+              <strong id="primaryLabel">--</strong>
+            </div>
+            <div class="prediction-meta">
+              <div class="metric">
+                <span class="metric-label">Confidence</span>
+                <span id="confidenceValue" class="metric-value">0.0%</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">Status</span>
+                <span id="statusValue" class="metric-value">Booting local UI</span>
+              </div>
+            </div>
+          </div>
+
+          <p id="helperText" class="helper-text">
+            Grant browser camera permission, then hold a static ASL handshape in frame.
+          </p>
+        </section>
+
+        <aside class="panel reference-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Reference</p>
+              <h2>Example Signs</h2>
+            </div>
+          </div>
+          <p class="reference-copy">
+            These cards come from the training set so you can copy the pose even if you do not already know ASL.
+          </p>
+          <div id="exampleGrid" class="example-grid"></div>
+        </aside>
+      </section>
+
+      <section class="grid lower-grid">
+        <section class="panel ranking-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Ranking</p>
+              <h2>Top Predictions</h2>
+            </div>
+          </div>
+          <div id="predictionList" class="prediction-list"></div>
+        </section>
+
+        <section class="panel notes-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Testing</p>
+              <h2>How To Use It</h2>
+            </div>
+          </div>
+          <ul id="guidanceList" class="guidance-list"></ul>
+        </section>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

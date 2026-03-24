@@ -15,6 +15,7 @@ if "MPLCONFIGDIR" not in os.environ:
 import mediapipe as mp
 import numpy as np
 
+from .features import normalize_landmark_array
 from .model_assets import ensure_hand_landmarker_model
 
 
@@ -24,25 +25,53 @@ class DetectionResult:
     hand_landmarks: object | None
 
 
+HAND_CONNECTIONS: tuple[tuple[int, int], ...] = (
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 4),
+    (0, 5),
+    (5, 6),
+    (6, 7),
+    (7, 8),
+    (5, 9),
+    (9, 10),
+    (10, 11),
+    (11, 12),
+    (9, 13),
+    (13, 14),
+    (14, 15),
+    (15, 16),
+    (13, 17),
+    (17, 18),
+    (18, 19),
+    (19, 20),
+    (0, 17),
+)
+
+
 def _iterate_landmarks(hand_landmarks: object) -> object:
     if hasattr(hand_landmarks, "landmark"):
         return hand_landmarks.landmark
     return hand_landmarks
 
 
+def serialize_hand_landmarks(hand_landmarks: object | None) -> list[dict[str, float]]:
+    if hand_landmarks is None:
+        return []
+    return [
+        {
+            "x": float(landmark.x),
+            "y": float(landmark.y),
+            "z": float(landmark.z),
+        }
+        for landmark in _iterate_landmarks(hand_landmarks)
+    ]
+
+
 def normalize_landmarks(hand_landmarks: object) -> np.ndarray:
-    coordinates = np.asarray(
-        [[landmark.x, landmark.y, landmark.z] for landmark in _iterate_landmarks(hand_landmarks)],
-        dtype=np.float32,
-    )
-    coordinates -= coordinates[0]
-
-    scale = float(np.max(np.linalg.norm(coordinates, axis=1)))
-    if not np.isfinite(scale) or scale < 1e-6:
-        return np.zeros(coordinates.size, dtype=np.float32)
-
-    coordinates /= scale
-    return coordinates.reshape(-1)
+    coordinates = [[landmark.x, landmark.y, landmark.z] for landmark in _iterate_landmarks(hand_landmarks)]
+    return normalize_landmark_array(coordinates).reshape(-1)
 
 
 class HandLandmarkDetector:
@@ -52,6 +81,7 @@ class HandLandmarkDetector:
         model_complexity: int = 1,
         min_detection_confidence: float = 0.6,
         min_tracking_confidence: float = 0.5,
+        static_image_mode: bool = False,
         model_path: Path | None = None,
         auto_download_model: bool = True,
     ) -> None:
@@ -62,11 +92,12 @@ class HandLandmarkDetector:
         self._drawing_styles = None
         self._hand_connections = None
         self._last_timestamp_ms = 0
+        self._static_image_mode = static_image_mode
 
         if self._backend == "solutions":
             self._mp_hands = mp.solutions.hands
             self._hands = self._mp_hands.Hands(
-                static_image_mode=False,
+                static_image_mode=static_image_mode,
                 max_num_hands=max_num_hands,
                 model_complexity=model_complexity,
                 min_detection_confidence=min_detection_confidence,
@@ -82,12 +113,13 @@ class HandLandmarkDetector:
             auto_download=auto_download_model,
         )
         vision = mp.tasks.vision
+        running_mode = vision.RunningMode.IMAGE if static_image_mode else vision.RunningMode.VIDEO
         options = vision.HandLandmarkerOptions(
             base_options=mp.tasks.BaseOptions(
                 model_asset_path=str(model_asset_path),
                 delegate=mp.tasks.BaseOptions.Delegate.CPU,
             ),
-            running_mode=vision.RunningMode.VIDEO,
+            running_mode=running_mode,
             num_hands=max_num_hands,
             min_hand_detection_confidence=min_detection_confidence,
             min_hand_presence_confidence=min_detection_confidence,
@@ -120,7 +152,10 @@ class HandLandmarkDetector:
             )
 
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
-        results = self._hands.detect_for_video(image, self._next_timestamp_ms())
+        if self._static_image_mode:
+            results = self._hands.detect(image)
+        else:
+            results = self._hands.detect_for_video(image, self._next_timestamp_ms())
         if not results.hand_landmarks:
             return DetectionResult(features=None, hand_landmarks=None)
 

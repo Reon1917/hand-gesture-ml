@@ -5,8 +5,9 @@ from collections import Counter
 from pathlib import Path
 
 import numpy as np
+from .features import RAW_FEATURE_DIM
 
-FEATURE_DIM = 63
+FEATURE_DIM = RAW_FEATURE_DIM
 CSV_HEADER = ["label", *[f"feature_{index}" for index in range(FEATURE_DIM)]]
 
 

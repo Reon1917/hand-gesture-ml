@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gesture + Face Control Room</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  </head>
+  <body>
+    <div class="grain"></div>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Local Browser Console</p>
+        <h1>Gesture + Face Control Room</h1>
+        <p class="lede">
+          Browser webcam capture, one-click hand sample labeling, in-browser hand retraining,
+          live face analysis, and dry-run inference over the current Python pipeline.
+        </p>
+      </section>
+
+      <section class="layout">
+        <section class="panel stage">
+          <div class="stage-head">
+            <div>
+              <p class="panel-kicker">Live Stream</p>
+              <h2>Testing Viewport</h2>
+            </div>
+            <div class="mode-toggle">
+              <button class="mode-btn active" data-mode="collect">Collect</button>
+              <button class="mode-btn" data-mode="infer">Infer</button>
+            </div>
+          </div>
+
+          <div class="viewport">
+            <video id="sourceVideo" playsinline muted autoplay></video>
+            <canvas id="overlayCanvas"></canvas>
+            <canvas id="captureCanvas" width="960" height="720"></canvas>
+            <div class="viewport-overlay">
+              <span id="handModelChip" class="chip chip-warn">Hand model unavailable</span>
+              <span id="faceModelChip" class="chip">Face model optional</span>
+              <span id="latencyChip" class="chip">Latency --</span>
+              <span class="chip chip-accent">Web UI uses dry-run hand actions</span>
+            </div>
+          </div>
+
+          <div class="stage-grid">
+            <div class="stat-block">
+              <span class="stat-label">Runtime State</span>
+              <span class="stat-value" id="runtimeState">idle</span>
+            </div>
+            <div class="stat-block">
+              <span class="stat-label">Prediction</span>
+              <span class="stat-value" id="predictionValue">-</span>
+            </div>
+            <div class="stat-block">
+              <span class="stat-label">Confidence</span>
+              <span class="stat-value" id="confidenceValue">0.00</span>
+            </div>
+            <div class="stat-block">
+              <span class="stat-label">Active Gesture</span>
+              <span class="stat-value" id="activeGestureValue">-</span>
+            </div>
+          </div>
+
+          <div class="status-rail">
+            <div class="status-bar">
+              <span class="status-label">Last Event</span>
+              <span id="lastStatus">Booting dashboard…</span>
+            </div>
+            <div class="status-bar">
+              <span class="status-label">Last Action</span>
+              <span id="lastAction">Waiting for a stable gesture</span>
+            </div>
+          </div>
+
+          <div class="intel-grid">
+            <section class="intel-card">
+              <div class="intel-head">
+                <p class="panel-kicker">Hand Detail</p>
+                <h3>Fine Motion Signals</h3>
+              </div>
+              <div class="intel-stats">
+                <div class="intel-stat">
+                  <span class="stat-label">Finger Count</span>
+                  <span class="stat-value" id="handFingerCount">0</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Pinch Target</span>
+                  <span class="stat-value" id="handPinchTarget">-</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Pinch Strength</span>
+                  <span class="stat-value" id="handPinchStrength">0.00</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Palm Rotation</span>
+                  <span class="stat-value" id="handPalmRotation">0°</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Openness</span>
+                  <span class="stat-value" id="handOpenness">0.00</span>
+                </div>
+              </div>
+              <div class="pill-row" id="fingerStates"></div>
+            </section>
+
+            <section class="intel-card">
+              <div class="intel-head">
+                <p class="panel-kicker">Face Detail</p>
+                <h3>Pose + Expression</h3>
+              </div>
+              <div class="intel-stats">
+                <div class="intel-stat">
+                  <span class="stat-label">Face State</span>
+                  <span class="stat-value" id="faceStateValue">no_face</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Expression</span>
+                  <span class="stat-value" id="faceExpressionValue">unavailable</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Attention</span>
+                  <span class="stat-value" id="faceAttentionValue">unknown</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Expression Conf.</span>
+                  <span class="stat-value" id="faceExpressionConfidenceValue">0.00</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Pose</span>
+                  <span class="stat-value" id="facePoseValue">Y 0 / P 0 / R 0</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Smile</span>
+                  <span class="stat-value" id="faceSmileValue">0.00</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Mouth Open</span>
+                  <span class="stat-value" id="faceMouthValue">0.00</span>
+                </div>
+                <div class="intel-stat">
+                  <span class="stat-label">Blink</span>
+                  <span class="stat-value" id="faceBlinkValue">0.00</span>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="stack">
+          <section class="panel controls">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">Sample Capture</p>
+                <h2>Gesture Labels</h2>
+              </div>
+              <button id="trainButton" class="train-button">Retrain Hand Model</button>
+            </div>
+            <p class="panel-copy">
+              In collect mode, hold a hand gesture in frame and press a label button to save the latest detected landmarks.
+            </p>
+            <div id="gestureButtons" class="gesture-grid"></div>
+          </section>
+
+          <section class="panel bindings">
+            <div class="panel-head">
+              <div>
+                <p class="panel-kicker">Action Map</p>
+                <h2>Bindings + Dataset Ops</h2>
+              </div>
+              <button id="resetRuntimeButton" class="ghost-button">Reset Runtime</button>
+            </div>
+            <div id="bindingsList" class="binding-list"></div>
+            <div class="dataset-help-grid">
+              <div class="dataset-help-card">
+                <span class="status-label">Hand Import</span>
+                <p id="handDatasetHelp"></p>
+              </div>
+              <div class="dataset-help-card">
+                <span class="status-label">Face Dataset</span>
+                <p id="faceDatasetHelp"></p>
+              </div>
+            </div>
+          </section>
+        </section>
+      </section>
+
+      <section class="layout lower">
+        <section class="panel report">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Training Artifacts</p>
+              <h2>Model Reports</h2>
+            </div>
+          </div>
+          <div class="dual-report-layout">
+            <section class="report-card">
+              <div class="report-card-head">
+                <div>
+                  <span class="status-label">Hand Model</span>
+                  <h3>Gesture Classifier</h3>
+                </div>
+                <span id="accuracyBadge" class="chip">No metrics yet</span>
+              </div>
+              <div class="report-visual">
+                <img id="confusionMatrix" alt="Hand confusion matrix artifact">
+              </div>
+              <pre id="reportPreview" class="report-text"></pre>
+            </section>
+
+            <section class="report-card">
+              <div class="report-card-head">
+                <div>
+                  <span class="status-label">Face Model</span>
+                  <h3>Expression Classifier</h3>
+                </div>
+                <span id="faceAccuracyBadge" class="chip">Optional model</span>
+              </div>
+              <div class="report-visual">
+                <img id="faceConfusionMatrix" alt="Face confusion matrix artifact">
+              </div>
+              <pre id="faceReportPreview" class="report-text"></pre>
+            </section>
+          </div>
+        </section>
+
+        <section class="panel log-panel">
+          <div class="panel-head">
+            <div>
+              <p class="panel-kicker">Session Log</p>
+              <h2>Recent Events</h2>
+            </div>
+          </div>
+          <ul id="eventLog" class="event-log"></ul>
+        </section>
+      </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

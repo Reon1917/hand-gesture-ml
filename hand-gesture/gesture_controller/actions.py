@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 try:
@@ -24,16 +23,9 @@ def load_bindings(path: Path) -> dict[str, str]:
 @dataclass(slots=True)
 class ActionExecutor:
     dry_run: bool = False
-    cooldown_seconds: float = 1.0
-    _last_triggered: dict[str, float] = field(default_factory=dict)
     last_message: str = "Waiting for a stable gesture"
 
     def maybe_execute(self, gesture: str, action_spec: str) -> bool:
-        now = time.monotonic()
-        if now - self._last_triggered.get(gesture, 0.0) < self.cooldown_seconds:
-            return False
-
-        self._last_triggered[gesture] = now
         self.last_message = f"{gesture} -> {action_spec}"
         if self.dry_run:
             print(self.last_message)

@@ -18,6 +18,16 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("artifacts/gesture_model_metrics.json"),
     )
+    parser.add_argument(
+        "--confusion-matrix-out",
+        type=Path,
+        default=Path("artifacts/confusion_matrix.png"),
+    )
+    parser.add_argument(
+        "--report-out",
+        type=Path,
+        default=Path("artifacts/training_report.md"),
+    )
     parser.add_argument("--trees", type=int, default=300, help="Random forest tree count.")
     parser.add_argument("--test-size", type=float, default=0.2, help="Holdout fraction when enough data exists.")
     parser.add_argument("--random-state", type=int, default=42)
@@ -48,9 +58,18 @@ def main() -> int:
         test_size=args.test_size,
         random_state=args.random_state,
     )
-    save_artifacts(artifacts.bundle, artifacts.metrics, args.model_out, args.metrics_out)
+    metrics = save_artifacts(
+        artifacts.bundle,
+        artifacts.metrics,
+        args.model_out,
+        args.metrics_out,
+        args.confusion_matrix_out,
+        args.report_out,
+    )
 
     print(f"Saved model to {args.model_out}")
     print(f"Saved metrics to {args.metrics_out}")
-    print(json.dumps(artifacts.metrics, indent=2))
+    print(f"Saved confusion matrix to {args.confusion_matrix_out}")
+    print(f"Saved report to {args.report_out}")
+    print(json.dumps(metrics, indent=2))
     return 0
